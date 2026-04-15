@@ -14,7 +14,7 @@ const inter = Inter({
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: 'CryptoVault - Trade Smarter, Invest Faster',
+  title: 'CryptoRefund - Trade Smarter, Recover Faster',
   description: 'Experience the next generation of cryptocurrency trading. Secure, fast, and intuitive platform designed for both beginners and professional traders.',
   generator: 'v0.app',
   icons: {
