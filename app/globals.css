@@ -1,0 +1,211 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: oklch(0.08 0.02 250);
+  --foreground: oklch(0.98 0 0);
+  --card: oklch(0.12 0.015 250);
+  --card-foreground: oklch(0.98 0 0);
+  --popover: oklch(0.1 0.02 250);
+  --popover-foreground: oklch(0.98 0 0);
+  --primary: oklch(0.65 0.2 250);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.18 0.015 250);
+  --secondary-foreground: oklch(0.98 0 0);
+  --muted: oklch(0.2 0.01 250);
+  --muted-foreground: oklch(0.65 0 0);
+  --accent: oklch(0.65 0.2 250);
+  --accent-foreground: oklch(1 0 0);
+  --destructive: oklch(0.55 0.22 25);
+  --destructive-foreground: oklch(1 0 0);
+  --success: oklch(0.65 0.2 145);
+  --success-foreground: oklch(1 0 0);
+  --border: oklch(0.25 0.01 250);
+  --input: oklch(0.18 0.015 250);
+  --ring: oklch(0.65 0.2 250);
+  --chart-1: oklch(0.65 0.2 250);
+  --chart-2: oklch(0.65 0.2 145);
+  --chart-3: oklch(0.55 0.22 25);
+  --chart-4: oklch(0.75 0.15 80);
+  --chart-5: oklch(0.7 0.18 300);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.1 0.02 250);
+  --sidebar-foreground: oklch(0.98 0 0);
+  --sidebar-primary: oklch(0.65 0.2 250);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.18 0.015 250);
+  --sidebar-accent-foreground: oklch(0.98 0 0);
+  --sidebar-border: oklch(0.25 0.01 250);
+  --sidebar-ring: oklch(0.65 0.2 250);
+}
+
+.dark {
+  --background: oklch(0.08 0.02 250);
+  --foreground: oklch(0.98 0 0);
+  --card: oklch(0.12 0.015 250);
+  --card-foreground: oklch(0.98 0 0);
+  --popover: oklch(0.1 0.02 250);
+  --popover-foreground: oklch(0.98 0 0);
+  --primary: oklch(0.65 0.2 250);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.18 0.015 250);
+  --secondary-foreground: oklch(0.98 0 0);
+  --muted: oklch(0.2 0.01 250);
+  --muted-foreground: oklch(0.65 0 0);
+  --accent: oklch(0.65 0.2 250);
+  --accent-foreground: oklch(1 0 0);
+  --destructive: oklch(0.55 0.22 25);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.25 0.01 250);
+  --input: oklch(0.18 0.015 250);
+  --ring: oklch(0.65 0.2 250);
+  --chart-1: oklch(0.65 0.2 250);
+  --chart-2: oklch(0.65 0.2 145);
+  --chart-3: oklch(0.55 0.22 25);
+  --chart-4: oklch(0.75 0.15 80);
+  --chart-5: oklch(0.7 0.18 300);
+  --sidebar: oklch(0.1 0.02 250);
+  --sidebar-foreground: oklch(0.98 0 0);
+  --sidebar-primary: oklch(0.65 0.2 250);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.18 0.015 250);
+  --sidebar-accent-foreground: oklch(0.98 0 0);
+  --sidebar-border: oklch(0.25 0.01 250);
+  --sidebar-ring: oklch(0.65 0.2 250);
+}
+
+@theme inline {
+  --font-sans: 'Inter', 'Geist', 'Geist Fallback', system-ui, sans-serif;
+  --font-mono: 'Geist Mono', 'Geist Mono Fallback', monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Custom glassmorphism utilities */
+@layer utilities {
+  .glass {
+    @apply bg-black/40 backdrop-blur-xl border border-white/10;
+  }
+  .glass-nav {
+    @apply bg-black/60 backdrop-blur-md border-b border-white/10;
+  }
+}
+
+.google-translate-widget {
+  width: 108px;
+  min-width: 108px;
+  height: 32px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.google-translate-element,
+.google-translate-element .skiptranslate,
+.google-translate-element .goog-te-gadget {
+  width: 100%;
+}
+
+.google-translate-element .goog-te-gadget {
+  display: flex !important;
+  align-items: center;
+  justify-content: flex-end;
+  color: transparent !important;
+  font-size: 0 !important;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.google-translate-element .goog-te-gadget-simple {
+  display: flex !important;
+  align-items: center;
+  width: 100% !important;
+  min-height: 30px;
+  margin: 0 !important;
+  padding: 0 0.4rem !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+.google-translate-element .goog-te-gadget-simple .goog-te-menu-value {
+  display: flex !important;
+  align-items: center;
+  gap: 0.2rem;
+  width: 100%;
+  margin: 0 !important;
+  color: var(--color-foreground) !important;
+  font-size: 0.75rem !important;
+  line-height: 1;
+}
+
+.google-translate-element .goog-te-gadget-simple .goog-te-menu-value span:first-child {
+  max-width: 62px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.google-translate-element .goog-te-gadget-icon,
+.google-translate-element .goog-te-gadget-simple img {
+  display: none !important;
+}
+
+.google-translate-element .goog-te-gadget-simple span {
+  border: 0 !important;
+}
+
+iframe.goog-te-banner-frame.skiptranslate {
+  display: none !important;
+}
+
+body {
+  top: 0 !important;
+}
