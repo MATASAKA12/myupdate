@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Inter, Geist_Mono } from 'next/font/google'
+import { Suspense } from 'react'
 import { Analytics } from '@vercel/analytics/next'
 import { AuthProvider } from '@/lib/auth-context'
 import { Navbar } from '@/components/navbar'
@@ -44,7 +45,9 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <body className={`${inter.variable} font-sans antialiased`}>
         <AuthProvider>
-          <Navbar />
+          <Suspense fallback={null}>
+            <Navbar />
+          </Suspense>
           {children}
           <Toaster />
         </AuthProvider>
