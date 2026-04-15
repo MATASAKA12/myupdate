@@ -33,18 +33,18 @@ export function HeroSection() {
                 <Zap className="h-4 w-4 text-primary" />
                 <span className="text-sm text-primary">The Future of Crypto Trading</span>
               </div>
-              
+
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-balance">
                 <span className="text-foreground">Trade Smarter.</span>
                 <br />
                 <span className="text-primary">Invest Faster.</span>
               </h1>
-              
+
               <p className="text-lg text-muted-foreground max-w-xl">
-                Experience the next generation of cryptocurrency trading. Secure, fast, and 
+                Experience the next generation of cryptocurrency trading. Secure, fast, and
                 intuitive platform designed for both beginners and professional traders.
               </p>
-              
+
               <div className="flex flex-wrap gap-4">
                 <Button size="lg" onClick={() => setAuthModalOpen(true)} className="gap-2">
                   Get Started Free
@@ -54,7 +54,7 @@ export function HeroSection() {
                   <a href="#pricing">View Plans</a>
                 </Button>
               </div>
-              
+
               <div className="flex flex-wrap gap-6 pt-4">
                 <div className="flex items-center gap-2">
                   <Shield className="h-5 w-5 text-primary" />
@@ -66,7 +66,7 @@ export function HeroSection() {
                 </div>
               </div>
             </div>
-            
+
             {/* Right Content - Clickable Crypto Logos */}
             <div className="relative flex items-center justify-center">
               <div className="absolute inset-0 bg-primary/20 rounded-full blur-3xl opacity-30" />
@@ -84,14 +84,16 @@ export function HeroSection() {
                       fill
                       className="object-contain drop-shadow-2xl"
                       crossOrigin="anonymous"
+                      unoptimized
+                      priority
                     />
                   </div>
                   <span className="absolute bottom-4 text-amber-400 font-bold text-sm opacity-0 group-hover:opacity-100 transition-opacity">
                     Click to Trade
                   </span>
                 </button>
-                
-                {/* Ethereum - Floating element */}
+
+                {/* Ethereum */}
                 <button
                   onClick={() => handleCoinClick("ETH")}
                   className="absolute -top-4 -right-4 w-20 h-20 rounded-full bg-gradient-to-br from-blue-400/20 to-blue-600/20 shadow-lg shadow-blue-500/30 flex items-center justify-center hover:scale-110 transition-transform cursor-pointer border-2 border-blue-400/30 hover:border-blue-400/60"
@@ -104,11 +106,12 @@ export function HeroSection() {
                       fill
                       className="object-contain drop-shadow-lg"
                       crossOrigin="anonymous"
+                      unoptimized
                     />
                   </div>
                 </button>
-                
-                {/* Solana - Floating element */}
+
+                {/* Solana */}
                 <button
                   onClick={() => handleCoinClick("SOL")}
                   className="absolute -bottom-4 -left-4 w-16 h-16 rounded-full bg-gradient-to-br from-purple-400/20 to-purple-600/20 shadow-lg shadow-purple-500/30 flex items-center justify-center hover:scale-110 transition-transform cursor-pointer border-2 border-purple-400/30 hover:border-purple-400/60"
@@ -121,11 +124,12 @@ export function HeroSection() {
                       fill
                       className="object-contain drop-shadow-lg"
                       crossOrigin="anonymous"
+                      unoptimized
                     />
                   </div>
                 </button>
 
-                {/* BNB - Additional floating element */}
+                {/* BNB */}
                 <button
                   onClick={() => handleCoinClick("BNB")}
                   className="absolute top-1/4 -left-8 w-14 h-14 rounded-full bg-gradient-to-br from-yellow-400/20 to-yellow-600/20 shadow-lg shadow-yellow-500/30 flex items-center justify-center hover:scale-110 transition-transform cursor-pointer border-2 border-yellow-400/30 hover:border-yellow-400/60"
@@ -138,11 +142,12 @@ export function HeroSection() {
                       fill
                       className="object-contain drop-shadow-lg"
                       crossOrigin="anonymous"
+                      unoptimized
                     />
                   </div>
                 </button>
 
-                {/* Chainlink - Additional floating element */}
+                {/* Chainlink */}
                 <button
                   onClick={() => handleCoinClick("LINK")}
                   className="absolute bottom-1/4 -right-6 w-12 h-12 rounded-full bg-gradient-to-br from-blue-500/20 to-blue-700/20 shadow-lg shadow-blue-600/30 flex items-center justify-center hover:scale-110 transition-transform cursor-pointer border-2 border-blue-500/30 hover:border-blue-500/60"
@@ -155,6 +160,7 @@ export function HeroSection() {
                       fill
                       className="object-contain drop-shadow-lg"
                       crossOrigin="anonymous"
+                      unoptimized
                     />
                   </div>
                 </button>
