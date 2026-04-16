@@ -136,7 +136,7 @@ export function HeroSection() {
                 >
                   <div className="w-9 h-9 relative">
                     <Image
-                      src={coinLogos.BNB}
+                      src="/assets/coin/bnb.png"
                       alt="BNB"
                       fill
                       className="object-contain drop-shadow-lg"
