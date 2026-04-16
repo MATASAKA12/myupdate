@@ -6,7 +6,6 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { AuthModal } from "@/components/auth-modal"
 import { ArrowRight, TrendingUp, Shield, Zap } from "lucide-react"
-import { coinLogos } from "@/lib/coingecko"
 import { useAuth } from "@/lib/auth-context"
 
 export function HeroSection() {
@@ -23,7 +22,7 @@ export function HeroSection() {
   }
 
   return (
-    <>
+  <>
       <section className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-950 via-slate-900 to-black pt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
@@ -71,6 +70,7 @@ export function HeroSection() {
             <div className="relative flex items-center justify-center">
               <div className="absolute inset-0 bg-primary/20 rounded-full blur-3xl opacity-30" />
               <div className="relative w-64 h-64 sm:w-80 sm:h-80 lg:w-96 lg:h-96">
+                
                 {/* Bitcoin - Main coin */}
                 <button
                   onClick={() => handleCoinClick("BTC")}
@@ -79,11 +79,10 @@ export function HeroSection() {
                 >
                   <div className="w-[70%] h-[70%] relative">
                     <Image
-                      src="/assets/coin/bitcoin.png"
+                      src="/assets/coin/bitcoin.png"   // ← Updated local path
                       alt="Bitcoin"
                       fill
                       className="object-contain drop-shadow-2xl"
-                     
                       priority
                     />
                   </div>
@@ -100,12 +99,10 @@ export function HeroSection() {
                 >
                   <div className="w-14 h-14 relative">
                     <Image
-                      src={coinLogos.ETH}
+                      src="/assets/coin/ethereum.png"   // ← Updated
                       alt="Ethereum"
                       fill
                       className="object-contain drop-shadow-lg"
-                      crossOrigin="anonymous"
-                      unoptimized
                     />
                   </div>
                 </button>
@@ -118,12 +115,10 @@ export function HeroSection() {
                 >
                   <div className="w-10 h-10 relative">
                     <Image
-                      src={coinLogos.SOL}
+                      src="/assets/coin/solana.png"   // ← Updated
                       alt="Solana"
                       fill
                       className="object-contain drop-shadow-lg"
-                      crossOrigin="anonymous"
-                      unoptimized
                     />
                   </div>
                 </button>
@@ -136,12 +131,10 @@ export function HeroSection() {
                 >
                   <div className="w-9 h-9 relative">
                     <Image
-                      src="/assets/coin/bnb.png"
+                      src="/assets/coin/bnb.png"   // ← Updated
                       alt="BNB"
                       fill
                       className="object-contain drop-shadow-lg"
-                      crossOrigin="anonymous"
-                      unoptimized
                     />
                   </div>
                 </button>
@@ -154,12 +147,10 @@ export function HeroSection() {
                 >
                   <div className="w-8 h-8 relative">
                     <Image
-                      src={coinLogos.LINK}
+                      src="/assets/coin/chainlink.png"   // ← Updated (adjust filename if needed)
                       alt="Chainlink"
                       fill
                       className="object-contain drop-shadow-lg"
-                      crossOrigin="anonymous"
-                      unoptimized
                     />
                   </div>
                 </button>
@@ -170,6 +161,3 @@ export function HeroSection() {
       </section>
 
       <AuthModal open={authModalOpen} onOpenChange={setAuthModalOpen} defaultTab="signup" />
-    </>
-  )
-}
