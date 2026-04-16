@@ -79,12 +79,11 @@ export function HeroSection() {
                 >
                   <div className="w-[70%] h-[70%] relative">
                     <Image
-                      src={coinLogos.BTC}
+                      src="/assets/coin/bitcoin.png"
                       alt="Bitcoin"
                       fill
                       className="object-contain drop-shadow-2xl"
-                      crossOrigin="anonymous"
-                      unoptimized
+                     
                       priority
                     />
                   </div>
