@@ -1,0 +1,21 @@
+lockdown-install.js:1 SES Removing unpermitted intrinsics
+(index):1 Access to image at 'https://assets.coingecko.com/coins/images/4128/large/solana.png' from origin 'https://myupdate-bl3p-gopb5k6bz-decentraljaxxclassic-3559s-projects.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+solana.png:1  Failed to load resource: net::ERR_FAILED
+(index):1 Access to image at 'https://assets.coingecko.com/coins/images/877/large/chainlink-new-logo.png' from origin 'https://myupdate-bl3p-gopb5k6bz-decentraljaxxclassic-3559s-projects.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+chainlink-new-logo.png:1  Failed to load resource: net::ERR_FAILED
+(index):1 Access to image at 'https://assets.coingecko.com/coins/images/44/large/xrp-symbol-white-128.png' from origin 'https://myupdate-bl3p-gopb5k6bz-decentraljaxxclassic-3559s-projects.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+xrp-symbol-white-128.png:1  Failed to load resource: net::ERR_FAILED
+(index):1 Access to image at 'https://assets.coingecko.com/coins/images/1/large/bitcoin.png' from origin 'https://myupdate-bl3p-gopb5k6bz-decentraljaxxclassic-3559s-projects.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+bitcoin.png:1  Failed to load resource: net::ERR_FAILED
+(index):1 Access to image at 'https://assets.coingecko.com/coins/images/279/large/ethereum.png' from origin 'https://myupdate-bl3p-gopb5k6bz-decentraljaxxclassic-3559s-projects.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+ethereum.png:1  Failed to load resource: net::ERR_FAILED
+(index):1 Access to image at 'https://assets.coingecko.com/coins/images/825/large/bnb-icon2_2x.png' from origin 'https://myupdate-bl3p-gopb5k6bz-decentraljaxxclassic-3559s-projects.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+bnb-icon2_2x.png:1  Failed to load resource: net::ERR_FAILED
+(index):1 Access to image at 'https://assets.coingecko.com/coins/images/975/large/cardano.png' from origin 'https://myupdate-bl3p-gopb5k6bz-decentraljaxxclassic-3559s-projects.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+cardano.png:1  Failed to load resource: net::ERR_FAILED
+(index):1 Access to image at 'https://assets.coingecko.com/coins/images/5/large/dogecoin.png' from origin 'https://myupdate-bl3p-gopb5k6bz-decentraljaxxclassic-3559s-projects.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+dogecoin.png:1  Failed to load resource: net::ERR_FAILED
+(index):1 Access to image at 'https://assets.coingecko.com/coins/images/12559/large/Avalanche_Circle_RedWhite_Trans.png' from origin 'https://myupdate-bl3p-gopb5k6bz-decentraljaxxclassic-3559s-projects.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+Avalanche_Circle_RedWhite_Trans.png:1  Failed to load resource: net::ERR_FAILED
+(index):1 Access to image at 'https://assets.coingecko.com/coins/images/11939/large/shiba.png' from origin 'https://myupdate-bl3p-gopb5k6bz-decentraljaxxclassic-3559s-projects.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+shiba.png:1  Failed to load resource: net::ERR_FAILED
