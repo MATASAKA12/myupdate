@@ -1,28 +1,29 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { useState, useEffect } from "react"
+import { createClient } from "@/lib/supabase/client"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Spinner } from "@/components/ui/spinner"
-import { Github, Mail } from "lucide-react"
-import { signInWithEmail, signUpWithEmail } from "@/actions/auth-actions"   // ← New import
+import { Turnstile } from "@marsidev/react-turnstile"   // ← Updated import
 
-interface AuthModalProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  defaultTab?: "signin" | "signup"
-}
+const supabase = createClient()
 
-export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthModalProps) {
-  const router = useRouter()
-  
+export function AuthModal({ open, onOpenChange, defaultTab = "signin" }) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
+  const [successMessage, setSuccessMessage] = useState("")
+
+  // Turnstile (only for Sign In)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+
+  // OTP State (only for Sign Up)
+  const [verificationStep, setVerificationStep] = useState<"none" | "otp">("none")
+  const [otp, setOtp] = useState("")
 
   // Sign In state
   const [signInEmail, setSignInEmail] = useState("")
@@ -34,187 +35,211 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
   const [signUpConfirmPassword, setSignUpConfirmPassword] = useState("")
   const [acceptedTerms, setAcceptedTerms] = useState(false)
 
-  const [successMessage, setSuccessMessage] = useState("")
-const handleSignIn = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setError("");
-  setSuccessMessage("");
+  // Reset form when modal closes
+  useEffect(() => {
+    if (!open) resetForm()
+  }, [open])
 
-  if (!signInEmail || !signInPassword) {
-    setError("Please fill in all fields");
-    return;
+  const resetForm = () => {
+    setError("")
+    setSuccessMessage("")
+    setCaptchaToken(null)
+    setVerificationStep("none")
+    setOtp("")
+    setSignInEmail("")
+    setSignInPassword("")
+    setSignUpEmail("")
+    setSignUpPassword("")
+    setSignUpConfirmPassword("")
+    setAcceptedTerms(false)
   }
 
-  setIsLoading(true);
+  // ================= SIGN IN (with Turnstile) =================
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError("")
 
-  try {
-    await signInWithEmail(signInEmail, signInPassword);
-    onOpenChange(false);     // Close the modal
-    // No need for router.push — the server action will handle redirect
-  } catch (err: any) {
-    setError(err.message || "Login failed. Please try again.");
-  } finally {
-    setIsLoading(false);
+    if (!captchaToken) {
+      setError("Please complete the CAPTCHA")
+      return
+    }
+
+    setIsLoading(true)
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: signInEmail,
+        password: signInPassword,
+      })
+
+      if (error) throw error
+
+      onOpenChange(false)
+    } catch (err: any) {
+      setError(err.message || "Invalid email or password")
+    } finally {
+      setIsLoading(false)
+    }
   }
-};
 
- const handleSignUp = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setError("");
-  setSuccessMessage("");
+  // ================= SIGN UP (OTP Only) =================
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError("")
+    setSuccessMessage("")
 
-  if (!signUpEmail || !signUpPassword) {
-    setError("Please fill in all fields");
-    return;
+    if (signUpPassword !== signUpConfirmPassword) {
+      setError("Passwords do not match")
+      return
+    }
+    if (!acceptedTerms) {
+      setError("Please accept the terms")
+      return
+    }
+
+    setIsLoading(true)
+
+    try {
+      const { error } = await supabase.auth.signUp({
+        email: signUpEmail,
+        password: signUpPassword,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        }
+      })
+
+      if (error) throw error
+
+      setVerificationStep("otp")
+      setSuccessMessage("We've sent a 6-digit verification code to your email")
+    } catch (err: any) {
+      setError(err.message || "Failed to create account")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
-  setIsLoading(true);
+  // ================= VERIFY OTP =================
+  const handleVerifyOtp = async () => {
+    if (otp.length < 6) {
+      setError("Please enter the full 6-digit code")
+      return
+    }
 
-  try {
-    await signUpWithEmail(signUpEmail, signUpPassword);
-    onOpenChange(false);     // Close the modal
-    // No need for router.push — the server action will handle redirect
-  } catch (err: any) {
-    setError(err.message || "Signup failed. Please try again.");
-  } finally {
-    setIsLoading(false);
+    setIsLoading(true)
+    setError("")
+
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email: signUpEmail,
+        token: otp,
+        type: "signup",
+      })
+
+      if (error) throw error
+
+      setSuccessMessage("Account created successfully!")
+      setTimeout(() => onOpenChange(false), 1500)
+    } catch (err: any) {
+      setError("Invalid or expired code. Please try again.")
+    } finally {
+      setIsLoading(false)
+    }
   }
-};
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md glass border-white/10 text-foreground">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-center text-2xl font-bold">
-            Welcome to <span className="text-primary">CryptoVault</span>
-          </DialogTitle>
-          <DialogDescription className="text-center text-muted-foreground">
-            Sign in to your account or create a new one to start trading
-          </DialogDescription>
+          <DialogTitle className="text-center text-2xl font-bold">CryptoVault</DialogTitle>
+          <DialogDescription className="text-center">Sign in or create account</DialogDescription>
         </DialogHeader>
 
         <Tabs defaultValue={defaultTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 bg-secondary">
+          <TabsList className="grid grid-cols-2">
             <TabsTrigger value="signin">Sign In</TabsTrigger>
             <TabsTrigger value="signup">Sign Up</TabsTrigger>
           </TabsList>
 
-          {/* Sign In Tab */}
-          <TabsContent value="signin" className="mt-4">
-            <form onSubmit={handleSignIn} className="flex flex-col gap-4">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="signin-email">Email</Label>
-                <Input
-                  id="signin-email"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={signInEmail}
-                  onChange={(e) => setSignInEmail(e.target.value)}
-                  className="bg-secondary border-white/10"
-                />
-              </div>
+          {/* SIGN IN TAB */}
+          <TabsContent value="signin">
+            <form onSubmit={handleSignIn} className="flex flex-col gap-4 mt-4">
+              <Input
+                type="email"
+                placeholder="Email"
+                value={signInEmail}
+                onChange={(e) => setSignInEmail(e.target.value)}
+                required
+              />
+              <Input
+                type="password"
+                placeholder="Password"
+                value={signInPassword}
+                onChange={(e) => setSignInPassword(e.target.value)}
+                required
+              />
 
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="signin-password">Password</Label>
-                <Input
-                  id="signin-password"
-                  type="password"
-                  placeholder="Enter your password"
-                  value={signInPassword}
-                  onChange={(e) => setSignInPassword(e.target.value)}
-                  className="bg-secondary border-white/10"
-                />
-              </div>
+              <Turnstile
+                siteKey="0x4AAAAAAC-8hE5thEYLXNgE"   // ← Replace with your real Turnstile Site Key
+                onSuccess={(token) => setCaptchaToken(token)}
+                onError={() => setError("CAPTCHA verification failed")}
+                options={{ theme: "dark" }}
+              />
 
-              {error && <p className="text-destructive text-sm">{error}</p>}
+              {error && <p className="text-red-500 text-sm">{error}</p>}
 
-              <Button type="submit" disabled={isLoading} className="w-full">
-                {isLoading ? <Spinner className="mr-2" /> : null}
-                Sign In
+              <Button type="submit" disabled={isLoading || !captchaToken}>
+                {isLoading ? <Spinner /> : "Sign In"}
               </Button>
-
-              {/* Google & GitHub buttons (you can implement later) */}
-              <div className="grid grid-cols-2 gap-4">
-                <Button variant="outline" type="button" className="border-white/10" disabled>
-                  <Mail className="mr-2 h-4 w-4" />
-                  Google
-                </Button>
-                <Button variant="outline" type="button" className="border-white/10" disabled>
-                  <Github className="mr-2 h-4 w-4" />
-                  GitHub
-                </Button>
-              </div>
             </form>
           </TabsContent>
 
-          {/* Sign Up Tab */}
-          <TabsContent value="signup" className="mt-4">
-            <form onSubmit={handleSignUp} className="flex flex-col gap-4">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="signup-email">Email</Label>
-                <Input
-                  id="signup-email"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={signUpEmail}
-                  onChange={(e) => setSignUpEmail(e.target.value)}
-                  className="bg-secondary border-white/10"
-                />
-              </div>
+          {/* SIGN UP TAB (OTP) */}
+          <TabsContent value="signup">
+            {verificationStep === "none" ? (
+              <form onSubmit={handleSignUp} className="flex flex-col gap-4 mt-4">
+                <Input type="email" placeholder="Email" value={signUpEmail} onChange={(e) => setSignUpEmail(e.target.value)} required />
+                <Input type="password" placeholder="Password" value={signUpPassword} onChange={(e) => setSignUpPassword(e.target.value)} required />
+                <Input type="password" placeholder="Confirm Password" value={signUpConfirmPassword} onChange={(e) => setSignUpConfirmPassword(e.target.value)} required />
 
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="signup-password">Password</Label>
-                <Input
-                  id="signup-password"
-                  type="password"
-                  placeholder="Create a password"
-                  value={signUpPassword}
-                  onChange={(e) => setSignUpPassword(e.target.value)}
-                  className="bg-secondary border-white/10"
-                />
-              </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox checked={acceptedTerms} onCheckedChange={(v) => setAcceptedTerms(!!v)} />
+                  <Label className="text-sm">I accept the Terms and Conditions</Label>
+                </div>
 
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="signup-confirm">Confirm Password</Label>
-                <Input
-                  id="signup-confirm"
-                  type="password"
-                  placeholder="Confirm your password"
-                  value={signUpConfirmPassword}
-                  onChange={(e) => setSignUpConfirmPassword(e.target.value)}
-                  className="bg-secondary border-white/10"
-                />
-              </div>
+                {error && <p className="text-red-500 text-sm">{error}</p>}
+                {successMessage && <p className="text-green-500 text-sm">{successMessage}</p>}
 
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="terms"
-                  checked={acceptedTerms}
-                  onCheckedChange={(checked) => setAcceptedTerms(checked as boolean)}
-                />
-                <Label htmlFor="terms" className="text-sm text-muted-foreground">
-                  I agree to the Terms of Service and Privacy Policy
-                </Label>
-              </div>
-
-              {error && <p className="text-destructive text-sm">{error}</p>}
-              {successMessage && <p className="text-green-500 text-sm">{successMessage}</p>}
-
-              <Button type="submit" disabled={isLoading} className="w-full">
-                {isLoading ? <Spinner className="mr-2" /> : null}
-                Create Account
-              </Button>
-
-              <div className="grid grid-cols-2 gap-4">
-                <Button variant="outline" type="button" className="border-white/10" disabled>
-                  <Mail className="mr-2 h-4 w-4" />
-                  Google
+                <Button type="submit" disabled={isLoading}>
+                  {isLoading ? <Spinner /> : "Create Account"}
                 </Button>
-                <Button variant="outline" type="button" className="border-white/10" disabled>
-                  <Github className="mr-2 h-4 w-4" />
-                  GitHub
+              </form>
+            ) : (
+              <div className="flex flex-col gap-4 mt-6">
+                <p className="text-center text-sm text-muted-foreground">
+                  Enter the 6-digit code sent to <br />
+                  <strong>{signUpEmail}</strong>
+                </p>
+
+                <Input
+                  placeholder="123456"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.trim())}
+                  maxLength={6}
+                  className="text-center text-2xl tracking-widest"
+                />
+
+                {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+
+                <Button onClick={handleVerifyOtp} disabled={isLoading || otp.length < 6}>
+                  {isLoading ? <Spinner /> : "Verify Code"}
+                </Button>
+
+                <Button variant="ghost" onClick={() => setVerificationStep("none")}>
+                  ← Back to Sign Up
                 </Button>
               </div>
-            </form>
+            )}
           </TabsContent>
         </Tabs>
       </DialogContent>
