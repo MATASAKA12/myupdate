@@ -9,7 +9,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Spinner } from "@/components/ui/spinner"
-import { Turnstile } from "@marsidev/react-turnstile"   // ← Updated import
+
+// New imports for simple captcha
+import { loadCaptchaEnginge, LoadCanvasTemplate, validateCaptcha } from "react-simple-captcha"
 
 const supabase = createClient()
 
@@ -18,8 +20,8 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }) {
   const [error, setError] = useState("")
   const [successMessage, setSuccessMessage] = useState("")
 
-  // Turnstile (only for Sign In)
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  // Captcha state (only for Sign In)
+  const [captchaInput, setCaptchaInput] = useState("")
 
   // OTP State (only for Sign Up)
   const [verificationStep, setVerificationStep] = useState<"none" | "otp">("none")
@@ -35,15 +37,22 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }) {
   const [signUpConfirmPassword, setSignUpConfirmPassword] = useState("")
   const [acceptedTerms, setAcceptedTerms] = useState(false)
 
-  // Reset form when modal closes
+  // Load captcha when modal opens
   useEffect(() => {
-    if (!open) resetForm()
+    if (open) {
+      // Small delay to ensure DOM is ready
+      const timer = setTimeout(() => {
+        loadCaptchaEnginge(6, "upper")   // 6 characters, uppercase
+      }, 300)
+
+      return () => clearTimeout(timer)
+    }
   }, [open])
 
   const resetForm = () => {
     setError("")
     setSuccessMessage("")
-    setCaptchaToken(null)
+    setCaptchaInput("")
     setVerificationStep("none")
     setOtp("")
     setSignInEmail("")
@@ -54,13 +63,15 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }) {
     setAcceptedTerms(false)
   }
 
-  // ================= SIGN IN (with Turnstile) =================
+  // ================= SIGN IN (with Simple Captcha) =================
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
 
-    if (!captchaToken) {
-      setError("Please complete the CAPTCHA")
+    if (!validateCaptcha(captchaInput)) {
+      setError("Invalid captcha. Please try again.")
+      setCaptchaInput("")
+      loadCaptchaEnginge(6) // Refresh captcha
       return
     }
 
@@ -83,41 +94,43 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }) {
   }
 
   // ================= SIGN UP (OTP Only) =================
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
-    setSuccessMessage("")
+  // ================= SIGN UP (OTP Only) =================
+const handleSignUp = async (e: React.FormEvent) => {
+  e.preventDefault()
+  setError("")
+  setSuccessMessage("")
 
-    if (signUpPassword !== signUpConfirmPassword) {
-      setError("Passwords do not match")
-      return
-    }
-    if (!acceptedTerms) {
-      setError("Please accept the terms")
-      return
-    }
-
-    setIsLoading(true)
-
-    try {
-      const { error } = await supabase.auth.signUp({
-        email: signUpEmail,
-        password: signUpPassword,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-        }
-      })
-
-      if (error) throw error
-
-      setVerificationStep("otp")
-      setSuccessMessage("We've sent a 6-digit verification code to your email")
-    } catch (err: any) {
-      setError(err.message || "Failed to create account")
-    } finally {
-      setIsLoading(false)
-    }
+  if (signUpPassword !== signUpConfirmPassword) {
+    setError("Passwords do not match")
+    return
   }
+  if (!acceptedTerms) {
+    setError("Please accept the terms")
+    return
+  }
+
+  setIsLoading(true)
+
+  try {
+    // Use signInWithOtp with shouldCreateUser instead of signUp
+    const { error } = await supabase.auth.signInWithOtp({
+      email: signUpEmail,
+      options: {
+        shouldCreateUser: true,           // This creates the user if not exists
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      }
+    })
+
+    if (error) throw error
+
+    setVerificationStep("otp")
+    setSuccessMessage(`A 6-digit code has been sent to ${signUpEmail}`)
+  } catch (err: any) {
+    setError(err.message || "Failed to send verification code")
+  } finally {
+    setIsLoading(false)
+  }
+}
 
   // ================= VERIFY OTP =================
   const handleVerifyOtp = async () => {
@@ -161,7 +174,7 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }) {
             <TabsTrigger value="signup">Sign Up</TabsTrigger>
           </TabsList>
 
-          {/* SIGN IN TAB */}
+          {/* ================= SIGN IN TAB (with Captcha) ================= */}
           <TabsContent value="signin">
             <form onSubmit={handleSignIn} className="flex flex-col gap-4 mt-4">
               <Input
@@ -179,22 +192,26 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }) {
                 required
               />
 
-              <Turnstile
-                siteKey="0x4AAAAAAC-8hE5thEYLXNgE"   // ← Replace with your real Turnstile Site Key
-                onSuccess={(token) => setCaptchaToken(token)}
-                onError={() => setError("CAPTCHA verification failed")}
-                options={{ theme: "dark" }}
-              />
+              {/* Simple Captcha */}
+              <div className="flex flex-col items-center gap-3">
+                <LoadCanvasTemplate />
+                <Input
+                  placeholder="Enter captcha text"
+                  value={captchaInput}
+                  onChange={(e) => setCaptchaInput(e.target.value)}
+                  className="text-center"
+                />
+              </div>
 
-              {error && <p className="text-red-500 text-sm">{error}</p>}
+              {error && <p className="text-red-500 text-sm text-center">{error}</p>}
 
-              <Button type="submit" disabled={isLoading || !captchaToken}>
+              <Button type="submit" disabled={isLoading}>
                 {isLoading ? <Spinner /> : "Sign In"}
               </Button>
             </form>
           </TabsContent>
 
-          {/* SIGN UP TAB (OTP) */}
+          {/* ================= SIGN UP TAB (OTP) ================= */}
           <TabsContent value="signup">
             {verificationStep === "none" ? (
               <form onSubmit={handleSignUp} className="flex flex-col gap-4 mt-4">
