@@ -161,3 +161,6 @@ export function HeroSection() {
       </section>
 
       <AuthModal open={authModalOpen} onOpenChange={setAuthModalOpen} defaultTab="signup" />
+  </>
+  )
+}
