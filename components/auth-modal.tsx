@@ -93,8 +93,8 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }) {
     }
   }
 
-  // ================= SIGN UP (OTP Only) =================
-  // ================= SIGN UP (OTP Only) =================
+  
+// ================= SIGN UP (Force 6-digit OTP) =================
 const handleSignUp = async (e: React.FormEvent) => {
   e.preventDefault()
   setError("")
@@ -112,21 +112,22 @@ const handleSignUp = async (e: React.FormEvent) => {
   setIsLoading(true)
 
   try {
-    // Use signInWithOtp with shouldCreateUser instead of signUp
     const { error } = await supabase.auth.signInWithOtp({
       email: signUpEmail,
       options: {
-        shouldCreateUser: true,           // This creates the user if not exists
+        shouldCreateUser: true,
         emailRedirectTo: `${window.location.origin}/auth/callback`,
+        // This helps force OTP behavior
+        captchaToken: undefined, // optional
       }
     })
 
     if (error) throw error
 
     setVerificationStep("otp")
-    setSuccessMessage(`A 6-digit code has been sent to ${signUpEmail}`)
+    setSuccessMessage(`We've sent a 8-digit verification code to ${signUpEmail}. Please check your inbox and spam folder.`)
   } catch (err: any) {
-    setError(err.message || "Failed to send verification code")
+    setError(err.message || "Failed to send verification code. Please try again.")
   } finally {
     setIsLoading(false)
   }
@@ -134,8 +135,8 @@ const handleSignUp = async (e: React.FormEvent) => {
 
   // ================= VERIFY OTP =================
   const handleVerifyOtp = async () => {
-    if (otp.length < 6) {
-      setError("Please enter the full 6-digit code")
+    if (otp.length < 8) {
+      setError("Please enter the full 8-digit code")
       return
     }
 
@@ -234,21 +235,28 @@ const handleSignUp = async (e: React.FormEvent) => {
             ) : (
               <div className="flex flex-col gap-4 mt-6">
                 <p className="text-center text-sm text-muted-foreground">
-                  Enter the 6-digit code sent to <br />
+                  Enter the 8-digit code sent to <br />
                   <strong>{signUpEmail}</strong>
                 </p>
 
+                <div className="bg-amber-500/10 border border-amber-500/30 
+                    rounded-lg p-3 text-xs text-amber-600 text-center">
+              Did not receive it? Check your <strong>Spam</strong> or 
+             <strong> Junk</strong> folder. Mark it as 
+             <strong> Not Spam</strong> to receive future emails normally.
+         </div>
+
                 <Input
-                  placeholder="123456"
+                  placeholder="12345678"
                   value={otp}
                   onChange={(e) => setOtp(e.target.value.trim())}
-                  maxLength={6}
+                  maxLength={8}
                   className="text-center text-2xl tracking-widest"
                 />
 
                 {error && <p className="text-red-500 text-sm text-center">{error}</p>}
 
-                <Button onClick={handleVerifyOtp} disabled={isLoading || otp.length < 6}>
+                <Button onClick={handleVerifyOtp} disabled={isLoading || otp.length < 8}>
                   {isLoading ? <Spinner /> : "Verify Code"}
                 </Button>
 
