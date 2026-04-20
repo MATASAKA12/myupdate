@@ -6,6 +6,7 @@ import { AuthProvider } from '@/lib/auth-context'
 import { Navbar } from '@/components/navbar'
 import { Toaster } from '@/components/ui/sonner'
 import './globals.css'
+import TawkToChat from "@/components/tawk-to-chat";
 
 const inter = Inter({ 
   subsets: ['latin'],
@@ -50,6 +51,7 @@ export default function RootLayout({
           </Suspense>
           {children}
           <Toaster />
+          <TawkToChat />
         </AuthProvider>
         <Analytics />
       </body>

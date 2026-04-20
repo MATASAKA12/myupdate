@@ -164,10 +164,6 @@ export function Footer() {
               <span className="h-2 w-2 rounded-full bg-green-500" />
               All systems operational
             </span>
-            <span>|</span>
-            <span>Built with Next.js & Supabase</span>
-            <span>|</span>
-            <span>Powered by Vercel</span>
           </div>
         </div>
       </div>
