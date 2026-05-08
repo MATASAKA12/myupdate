@@ -1,16 +1,18 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { AuthModal } from "@/components/auth-modal"
+import { useAuth } from "@/lib/auth-context"
 import { Check } from "lucide-react"
 
 const plans = [
   {
     name: "Starter",
-    price: "Free",
+    price: "$100",
     description: "Perfect for getting started with crypto trading",
     features: [
       "Trade up to 5 cryptocurrencies",
@@ -23,7 +25,7 @@ const plans = [
   },
   {
     name: "Advanced",
-    price: "$29",
+    price: "$200",
     period: "/month",
     description: "For serious traders who need more power",
     features: [
@@ -38,7 +40,7 @@ const plans = [
   },
   {
     name: "Pro",
-    price: "$99",
+    price: "$500",
     period: "/month",
     description: "Enterprise-grade tools for professional traders",
     features: [
@@ -55,7 +57,18 @@ const plans = [
 ]
 
 export function PricingSection() {
+  const router = useRouter()
+  const { isAuthenticated, isLoading } = useAuth()
   const [authModalOpen, setAuthModalOpen] = useState(false)
+
+  const handleDepositClick = () => {
+    if (isAuthenticated) {
+      router.push("/dashboard/deposit")
+      return
+    }
+
+    setAuthModalOpen(true)
+  }
 
   return (
     <>
@@ -63,7 +76,7 @@ export function PricingSection() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4">
-              Simple, Transparent Pricing
+              Investment Plans
             </h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
               Choose the plan that fits your trading needs. Upgrade or downgrade anytime.
@@ -112,9 +125,10 @@ export function PricingSection() {
                   <Button
                     className="w-full"
                     variant={plan.highlighted ? "default" : "outline"}
-                    onClick={() => setAuthModalOpen(true)}
+                    onClick={handleDepositClick}
+                    disabled={isLoading}
                   >
-                    {plan.price === "Free" ? "Get Started" : "Choose Plan"}
+                    {plan.price === "$100" ? "DEPOSIT" : "DEPOSIT"}
                   </Button>
                 </CardFooter>
               </Card>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useCallback, useEffect, useState, type FormEvent } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -15,10 +15,17 @@ import { loadCaptchaEnginge, LoadCanvasTemplate, validateCaptcha } from "react-s
 
 const supabase = createClient()
 
-export function AuthModal({ open, onOpenChange, defaultTab = "signin" }) {
+type AuthModalProps = {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  defaultTab?: "signin" | "signup"
+}
+
+export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthModalProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const [successMessage, setSuccessMessage] = useState("")
+  const [activeTab, setActiveTab] = useState<"signin" | "signup">(defaultTab)
 
   // Captcha state (only for Sign In)
   const [captchaInput, setCaptchaInput] = useState("")
@@ -37,17 +44,30 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }) {
   const [signUpConfirmPassword, setSignUpConfirmPassword] = useState("")
   const [acceptedTerms, setAcceptedTerms] = useState(false)
 
-  // Load captcha when modal opens
+  const loadSignInCaptcha = useCallback(() => {
+    if (!document.getElementById("canv")) {
+      return
+    }
+
+    loadCaptchaEnginge(6, "white", "black", "upper")
+  }, [])
+
   useEffect(() => {
     if (open) {
-      // Small delay to ensure DOM is ready
-      const timer = setTimeout(() => {
-        loadCaptchaEnginge(6, "upper")   // 6 characters, uppercase
-      }, 300)
-
-      return () => clearTimeout(timer)
+      setActiveTab(defaultTab)
     }
-  }, [open])
+  }, [defaultTab, open])
+
+  // Load captcha only when the sign-in tab canvas is mounted.
+  useEffect(() => {
+    if (!open || activeTab !== "signin") {
+      return
+    }
+
+    const timer = setTimeout(loadSignInCaptcha, 0)
+
+    return () => clearTimeout(timer)
+  }, [activeTab, loadSignInCaptcha, open])
 
   const resetForm = () => {
     setError("")
@@ -64,14 +84,14 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }) {
   }
 
   // ================= SIGN IN (with Simple Captcha) =================
-  const handleSignIn = async (e: React.FormEvent) => {
+  const handleSignIn = async (e: FormEvent) => {
     e.preventDefault()
     setError("")
 
-    if (!validateCaptcha(captchaInput)) {
+    if (!validateCaptcha(captchaInput, false)) {
       setError("Invalid captcha. Please try again.")
       setCaptchaInput("")
-      loadCaptchaEnginge(6) // Refresh captcha
+      loadSignInCaptcha()
       return
     }
 
@@ -95,7 +115,7 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }) {
 
   
 // ================= SIGN UP (Force 6-digit OTP) =================
-const handleSignUp = async (e: React.FormEvent) => {
+const handleSignUp = async (e: FormEvent) => {
   e.preventDefault()
   setError("")
   setSuccessMessage("")
@@ -169,7 +189,7 @@ const handleSignUp = async (e: React.FormEvent) => {
           <DialogDescription className="text-center">Sign in or create account</DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue={defaultTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "signin" | "signup")} className="w-full">
           <TabsList className="grid grid-cols-2">
             <TabsTrigger value="signin">Sign In</TabsTrigger>
             <TabsTrigger value="signup">Sign Up</TabsTrigger>
