@@ -59,7 +59,7 @@ export function Navbar() {
   const searchParams = useSearchParams()
   const { isAuthenticated, user, logout, isSupabaseConnected } = useAuth()
   const [authModalOpen, setAuthModalOpen] = useState(false)
-  const [authModalTab, setAuthModalTab] = useState<"signin" | "signup">("signin")
+  const [authModalTab, setAuthModalTab] = useState<"signin" | "signup" | "forgot">("signin")
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const displayName =
@@ -68,7 +68,13 @@ export function Navbar() {
     user?.email ||
     "Account"
 
-  // ... (your existing useEffect for auth modal remains unchanged)
+  useEffect(() => {
+    const authTab = searchParams.get("auth")
+    if (authTab === "signin" || authTab === "signup" || authTab === "forgot") {
+      setAuthModalTab(authTab)
+      setAuthModalOpen(true)
+    }
+  }, [searchParams])
 
   const handleLogout = () => {
     void logout().finally(() => {

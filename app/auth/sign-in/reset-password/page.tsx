@@ -16,16 +16,37 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [ready, setReady] = useState(false)
+  const [linkError, setLinkError] = useState('')
 
   // Wait for Supabase to pick up the session from the URL hash
   useEffect(() => {
+    let mounted = true
+
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (mounted && session) setReady(true)
+    }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event) => {
-        if (event === 'PASSWORD_RECOVERY') setReady(true)
+        if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') setReady(true)
       }
     )
-    return () => subscription.unsubscribe()
-  }, [])
+
+    checkSession()
+
+    const timer = window.setTimeout(() => {
+      if (mounted && !ready) {
+        setLinkError('This reset link is invalid or expired. Please request a new reset code.')
+      }
+    }, 3500)
+
+    return () => {
+      mounted = false
+      window.clearTimeout(timer)
+      subscription.unsubscribe()
+    }
+  }, [ready, supabase.auth])
 
   async function handleReset(e: FormEvent) {
     e.preventDefault()
@@ -57,9 +78,19 @@ export default function ResetPasswordPage() {
   if (!ready) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <Spinner />
-          <p className="text-sm text-muted-foreground mt-4">Verifying your reset link...</p>
+        <div className="text-center px-4">
+          {linkError ? (
+            <div className="w-full max-w-sm border border-border rounded-xl p-6 bg-card">
+              <h1 className="text-2xl font-bold text-center mb-3">Reset Link Expired</h1>
+              <p className="text-sm text-muted-foreground mb-5">{linkError}</p>
+              <Button onClick={() => router.push('/?auth=forgot')}>Request New Code</Button>
+            </div>
+          ) : (
+            <>
+              <Spinner />
+              <p className="text-sm text-muted-foreground mt-4">Verifying your reset link...</p>
+            </>
+          )}
         </div>
       </div>
     )
