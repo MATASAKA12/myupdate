@@ -13,25 +13,6 @@ import { loadCaptchaEnginge, LoadCanvasTemplate, validateCaptcha } from "react-s
 
 const supabase = createClient()
 
-// ⚠️ Supabase always sends 8-digit OTP — do not change this
-const OTP_LENGTH = 8
-
-function normalizeEmail(email: string) {
-  return email.trim().toLowerCase()
-}
-
-function normalizeOtp(value: string) {
-  return value.replace(/\D/g, "").slice(0, OTP_LENGTH)
-}
-
-function isValidOtp(value: string) {
-  return new RegExp(`^\\d{${OTP_LENGTH}}$`).test(value)
-}
-
-function getPostAuthPath(email?: string | null) {
-  return email === "brainbroservice@gmail.com" ? "/admin" : "/dashboard"
-}
-
 type AuthModalProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -47,7 +28,7 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
   // Captcha
   const [captchaInput, setCaptchaInput] = useState("")
 
-  // Sign In
+  // Sign In — two steps: password check → OTP verify
   const [signInEmail, setSignInEmail] = useState("")
   const [signInPassword, setSignInPassword] = useState("")
   const [signInStep, setSignInStep] = useState<"credentials" | "otp">("credentials")
@@ -104,44 +85,12 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
     setConfirmNewPassword("")
   }
 
-  const ensureUserProfile = async (fallbackEmail: string) => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return null
-
-    const email = normalizeEmail(user.email || fallbackEmail)
-    const { data: existingProfile, error: fetchError } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("id", user.id)
-      .maybeSingle()
-
-    if (fetchError) throw fetchError
-
-    const profilePayload = {
-      email,
-      display_name: user.user_metadata?.display_name || user.user_metadata?.name || email.split("@")[0],
-      updated_at: new Date().toISOString(),
-    }
-
-    const { error } = existingProfile
-      ? await supabase.from("profiles").update(profilePayload).eq("id", user.id)
-      : await supabase.from("profiles").insert({
-          id: user.id,
-          ...profilePayload,
-          portfolio_balance: 15000,
-        })
-
-    if (error) throw error
-    return user
-  }
-
   // =================
   // SIGN IN — Step 1: verify password + captcha, then send OTP
   // =================
   const handleSignIn = async (e: FormEvent) => {
     e.preventDefault()
     setError("")
-    const email = normalizeEmail(signInEmail)
 
     if (!validateCaptcha(captchaInput, false)) {
       setError("Invalid captcha. Please try again.")
@@ -153,26 +102,24 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
     setIsLoading(true)
 
     try {
-      // Step 1: verify credentials are correct
+      // First verify password is correct
       const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
+        email: signInEmail,
         password: signInPassword,
       })
       if (signInError) throw signInError
 
-      // Credentials valid — sign out and send OTP code
+      // Password correct — sign out immediately and send OTP
       await supabase.auth.signOut()
 
-      // signInWithOtp sends a 8-digit code when email template uses {{ .Token }}
       const { error: otpError } = await supabase.auth.signInWithOtp({
-        email,
+        email: signInEmail,
         options: { shouldCreateUser: false },
       })
       if (otpError) throw otpError
 
       setSignInStep("otp")
-      setSignInEmail(email)
-      setSuccessMessage(`A 8-digit code has been sent to ${email}`)
+      setSuccessMessage(`A 8-digit code has been sent to ${signInEmail}`)
     } catch (err: any) {
       setError(err.message || "Invalid email or password")
     } finally {
@@ -180,14 +127,10 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
     }
   }
 
-  // SIGN IN — Step 2: verify OTP
-  // type "magiclink" is correct for signInWithOtp codes
+  // SIGN IN — Step 2: verify the OTP code
   const handleVerifySignInOtp = async () => {
-    const token = normalizeOtp(signInOtp)
-    setSignInOtp(token)
-
-    if (!isValidOtp(token)) {
-      setError(`Please enter the full ${OTP_LENGTH}-digit code`)
+    if (signInOtp.length < 8) {
+      setError("Please enter the full 8-digit code")
       return
     }
 
@@ -197,14 +140,19 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
     try {
       const { error } = await supabase.auth.verifyOtp({
         email: signInEmail,
-        token,
-        type: "magiclink", // ✅ correct type for signInWithOtp
+        token: signInOtp,
+        type: "email",
       })
       if (error) throw error
 
-      const user = await ensureUserProfile(signInEmail)
+      const { data: { user } } = await supabase.auth.getUser()
       onOpenChange(false)
-      window.location.href = getPostAuthPath(user?.email || signInEmail)
+
+      if (user?.email === "brainbroservice@gmail.com") {
+        window.location.href = "/admin"
+      } else {
+        window.location.href = "/dashboard"
+      }
     } catch (err: any) {
       setError("Invalid or expired code. Please try again.")
     } finally {
@@ -213,20 +161,15 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
   }
 
   // =================
-  // SIGN UP — send OTP via signInWithOtp (triggers signup email with code)
+  // SIGN UP — send OTP
   // =================
   const handleSignUp = async (e: FormEvent) => {
     e.preventDefault()
     setError("")
     setSuccessMessage("")
-    const email = normalizeEmail(signUpEmail)
 
     if (signUpPassword !== signUpConfirmPassword) {
       setError("Passwords do not match")
-      return
-    }
-    if (signUpPassword.length < 8) {
-      setError("Password must be at least 8 characters")
       return
     }
     if (!acceptedTerms) {
@@ -237,19 +180,17 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
     setIsLoading(true)
 
     try {
-      // Use signInWithOtp with shouldCreateUser: true to send a 8-digit code
       const { error } = await supabase.auth.signInWithOtp({
-        email,
+        email: signUpEmail,
         options: {
           shouldCreateUser: true,
-          data: { password: signUpPassword }, // store password in metadata
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       })
       if (error) throw error
 
       setSignUpStep("otp")
-      setSignUpEmail(email)
-      setSuccessMessage(`A 8-digit verification code has been sent to ${email}.`)
+      setSuccessMessage(`We've sent an 8-digit verification code to ${signUpEmail}.`)
     } catch (err: any) {
       setError(err.message || "Failed to send verification code.")
     } finally {
@@ -258,13 +199,9 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
   }
 
   // SIGN UP — verify OTP
-  // type "email" is correct for signInWithOtp with shouldCreateUser
   const handleVerifySignUpOtp = async () => {
-    const token = normalizeOtp(signUpOtp)
-    setSignUpOtp(token)
-
-    if (!isValidOtp(token)) {
-      setError(`Please enter the full ${OTP_LENGTH}-digit code`)
+    if (signUpOtp.length < 8) {
+      setError("Please enter the full 8-digit code")
       return
     }
 
@@ -274,23 +211,13 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
     try {
       const { error } = await supabase.auth.verifyOtp({
         email: signUpEmail,
-        token,
-        type: "email", // ✅ correct type for new user signInWithOtp
+        token: signUpOtp,
+        type: "signup",
       })
       if (error) throw error
 
-      // Now update password since OTP doesn't set it
-      const { error: pwError } = await supabase.auth.updateUser({
-        password: signUpPassword,
-      })
-      if (pwError) throw pwError
-
-      const user = await ensureUserProfile(signUpEmail)
       setSuccessMessage("Account created successfully!")
-      setTimeout(() => {
-        onOpenChange(false)
-        window.location.href = getPostAuthPath(user?.email || signUpEmail)
-      }, 1000)
+      setTimeout(() => onOpenChange(false), 1500)
     } catch (err: any) {
       setError("Invalid or expired code. Please try again.")
     } finally {
@@ -299,25 +226,23 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
   }
 
   // =================
-  // FORGOT PASSWORD — Step 1: send reset code
+  // FORGOT PASSWORD — Step 1: send OTP
   // =================
   const handleForgotPassword = async (e: FormEvent) => {
     e.preventDefault()
     setError("")
-    setSuccessMessage("")
-    const email = normalizeEmail(forgotEmail)
     setIsLoading(true)
 
     try {
-      // resetPasswordForEmail sends a recovery token (8 digits when template uses {{ .Token }})
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/callback`,
+      // signInWithOtp sends a code (not a magic link) when OTP is enabled in Supabase
+      const { error } = await supabase.auth.signInWithOtp({
+        email: forgotEmail,
+        options: { shouldCreateUser: false },
       })
       if (error) throw error
 
       setForgotStep("otp")
-      setForgotEmail(email)
-      setSuccessMessage(`A 8-digit reset code has been sent to ${email}`)
+      setSuccessMessage(`A 8-digit reset code has been sent to ${forgotEmail}`)
     } catch (err: any) {
       setError(err.message || "Failed to send reset code")
     } finally {
@@ -326,13 +251,9 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
   }
 
   // FORGOT PASSWORD — Step 2: verify OTP
-  // type "recovery" is correct for resetPasswordForEmail
   const handleVerifyForgotOtp = async () => {
-    const token = normalizeOtp(forgotOtp)
-    setForgotOtp(token)
-
-    if (!isValidOtp(token)) {
-      setError(`Please enter the full ${OTP_LENGTH}-digit code`)
+    if (forgotOtp.length < 8) {
+      setError("Please enter the full 8-digit code")
       return
     }
 
@@ -342,8 +263,8 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
     try {
       const { error } = await supabase.auth.verifyOtp({
         email: forgotEmail,
-        token,
-        type: "recovery", // ✅ correct type for resetPasswordForEmail
+        token: forgotOtp,
+        type: "email",
       })
       if (error) throw error
 
@@ -376,13 +297,11 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
       const { error } = await supabase.auth.updateUser({ password: newPassword })
       if (error) throw error
 
-      const user = await ensureUserProfile(forgotEmail)
       setSuccessMessage("Password updated successfully!")
       setTimeout(() => {
         resetForm()
-        onOpenChange(false)
-        window.location.href = getPostAuthPath(user?.email || forgotEmail)
-      }, 1000)
+        setActiveTab("signin")
+      }, 1500)
     } catch (err: any) {
       setError(err.message || "Failed to update password")
     } finally {
@@ -465,24 +384,17 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
                   Didn't receive it? Check your <strong>Spam</strong> or <strong>Junk</strong> folder.
                 </div>
                 <Input
-                  placeholder="12345789"
+                  placeholder="12345678"
                   value={signInOtp}
-                  onChange={(e) => setSignInOtp(normalizeOtp(e.target.value))}
-                  maxLength={OTP_LENGTH}
-                  inputMode="numeric"
-                  pattern="[0-9]*"
+                  onChange={(e) => setSignInOtp(e.target.value.trim())}
+                  maxLength={8}
                   className="text-center text-2xl tracking-widest"
                 />
                 {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-                <Button onClick={handleVerifySignInOtp} disabled={isLoading || !isValidOtp(signInOtp)}>
+                <Button onClick={handleVerifySignInOtp} disabled={isLoading || signInOtp.length < 8}>
                   {isLoading ? <Spinner /> : "Verify & Sign In"}
                 </Button>
-                <Button variant="ghost" onClick={() => {
-                  setSignInStep("credentials")
-                  setError("")
-                  setSignInOtp("")
-                  setSuccessMessage("")
-                }}>
+                <Button variant="ghost" onClick={() => { setSignInStep("credentials"); setError(""); setSignInOtp("") }}>
                   ← Back
                 </Button>
               </div>
@@ -507,8 +419,7 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
                 <Button type="submit" disabled={isLoading}>
                   {isLoading ? <Spinner /> : "Send Reset Code"}
                 </Button>
-                <Button variant="ghost" type="button"
-                  onClick={() => { setActiveTab("signin"); setError("") }}>
+                <Button variant="ghost" type="button" onClick={() => { setActiveTab("signin"); setError("") }}>
                   ← Back to Sign In
                 </Button>
               </form>
@@ -517,7 +428,7 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
             {forgotStep === "otp" && (
               <div className="flex flex-col gap-4 mt-6">
                 <p className="text-center text-sm text-muted-foreground">
-                  Enter the 8-digit reset code sent to <br />
+                  Enter the 8-digit code sent to <br />
                   <strong>{forgotEmail}</strong>
                 </p>
                 {successMessage && (
@@ -529,22 +440,15 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
                 <Input
                   placeholder="12345678"
                   value={forgotOtp}
-                  onChange={(e) => setForgotOtp(normalizeOtp(e.target.value))}
-                  maxLength={OTP_LENGTH}
-                  inputMode="numeric"
-                  pattern="[0-9]*"
+                  onChange={(e) => setForgotOtp(e.target.value.trim())}
+                  maxLength={8}
                   className="text-center text-2xl tracking-widest"
                 />
                 {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-                <Button onClick={handleVerifyForgotOtp} disabled={isLoading || !isValidOtp(forgotOtp)}>
+                <Button onClick={handleVerifyForgotOtp} disabled={isLoading || forgotOtp.length < 8}>
                   {isLoading ? <Spinner /> : "Verify Code"}
                 </Button>
-                <Button variant="ghost" onClick={() => {
-                  setForgotStep("email")
-                  setError("")
-                  setForgotOtp("")
-                  setSuccessMessage("")
-                }}>
+                <Button variant="ghost" onClick={() => { setForgotStep("email"); setError(""); setForgotOtp("") }}>
                   ← Back
                 </Button>
               </div>
@@ -557,7 +461,7 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
                 </p>
                 <Input
                   type="password"
-                  placeholder="New password (min 8 chars)"
+                  placeholder="New password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   required
@@ -592,7 +496,7 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
                 />
                 <Input
                   type="password"
-                  placeholder="Password (min 8 chars)"
+                  placeholder="Password"
                   value={signUpPassword}
                   onChange={(e) => setSignUpPassword(e.target.value)}
                   required
@@ -617,36 +521,27 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
             ) : (
               <div className="flex flex-col gap-4 mt-6">
                 <p className="text-center text-sm text-muted-foreground">
-                  Enter the 6-digit code sent to <br />
+                  Enter the code sent to <br />
                   <strong>{signUpEmail}</strong>
                 </p>
-                {successMessage && (
-                  <p className="text-green-500 text-sm text-center">{successMessage}</p>
-                )}
                 <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-xs text-amber-600 text-center">
                   Did not receive it? Check your <strong>Spam</strong> or
                   <strong> Junk</strong> folder. Mark it as
                   <strong> Not Spam</strong> to receive future emails normally.
                 </div>
                 <Input
-                  placeholder="123456"
+                  placeholder="1234578"
                   value={signUpOtp}
-                  onChange={(e) => setSignUpOtp(normalizeOtp(e.target.value))}
-                  maxLength={OTP_LENGTH}
-                  inputMode="numeric"
-                  pattern="[0-9]*"
+                  onChange={(e) => setSignUpOtp(e.target.value.trim())}
+                  maxLength={8}
                   className="text-center text-2xl tracking-widest"
                 />
                 {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-                <Button onClick={handleVerifySignUpOtp} disabled={isLoading || !isValidOtp(signUpOtp)}>
-                  {isLoading ? <Spinner /> : "Verify & Create Account"}
+                {successMessage && <p className="text-green-500 text-sm text-center">{successMessage}</p>}
+                <Button onClick={handleVerifySignUpOtp} disabled={isLoading || signUpOtp.length < 6}>
+                  {isLoading ? <Spinner /> : "Verify Code"}
                 </Button>
-                <Button variant="ghost" onClick={() => {
-                  setSignUpStep("none")
-                  setError("")
-                  setSignUpOtp("")
-                  setSuccessMessage("")
-                }}>
+                <Button variant="ghost" onClick={() => { setSignUpStep("none"); setError(""); setSignUpOtp("") }}>
                   ← Back to Sign Up
                 </Button>
               </div>
