@@ -3,10 +3,10 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react"
 import type { User } from "@supabase/supabase-js"
 
-// Check if Supabase is configured
+// ✅ Fixed — use ANON_KEY not PUBLISHABLE_KEY
 const isSupabaseConfigured = () => {
   return !!(
-    process.env.NEXT_PUBLIC_SUPABASE_URL && 
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
   )
 }
@@ -28,6 +28,7 @@ interface AuthContextType {
   tradeHistory: Trade[]
   isLoading: boolean
   isSupabaseConnected: boolean
+  refreshBalance: () => Promise<void>
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
   signup: (email: string, password: string) => Promise<{ success: boolean; error?: string; needsConfirmation?: boolean }>
   logout: () => Promise<void>
@@ -38,29 +39,52 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [portfolioBalance, setPortfolioBalance] = useState(15000)
+  const [portfolioBalance, setPortfolioBalance] = useState(0) // ✅ default 0 not 15000
   const [tradeHistory, setTradeHistory] = useState<Trade[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [supabaseConfigured] = useState(isSupabaseConfigured())
+
+  // ✅ Standalone refresh function — call this to get latest balance from DB
+  const refreshBalance = useCallback(async () => {
+    if (!supabaseConfigured) return
+    try {
+      const { createClient } = await import("@/lib/supabase/client")
+      const supabase = createClient()
+      const { data: { user: currentUser } } = await supabase.auth.getUser()
+      if (!currentUser) return
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("portfolio_balance")
+        .eq("id", currentUser.id) // ✅ filter by user ID
+        .single()
+
+      if (profile) {
+        setPortfolioBalance(profile.portfolio_balance ?? 0)
+      }
+    } catch (error) {
+      console.error("Error refreshing balance:", error)
+    }
+  }, [supabaseConfigured])
 
   useEffect(() => {
     const initAuth = async () => {
       if (supabaseConfigured) {
         try {
-          // Only import and use Supabase if configured
           const { createClient } = await import("@/lib/supabase/client")
           const supabase = createClient()
-          
+
           const { data: { session } } = await supabase.auth.getSession()
           setUser(session?.user ?? null)
-          
+
           if (session?.user) {
-            // Load user's trade history from database
+            // ✅ Load trades
             const { data: trades } = await supabase
               .from("trades")
               .select("*")
+              .eq("user_id", session.user.id)
               .order("created_at", { ascending: false })
-            
+
             if (trades) {
               setTradeHistory(
                 trades.map((t) => ({
@@ -75,23 +99,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               )
             }
 
-            // Load portfolio balance from profile
+            // ✅ Load balance with correct user filter
             const { data: profile } = await supabase
               .from("profiles")
               .select("portfolio_balance")
+              .eq("id", session.user.id) // ✅ was missing this
               .single()
-            
+
             if (profile) {
-              setPortfolioBalance(profile.portfolio_balance)
+              setPortfolioBalance(profile.portfolio_balance ?? 0)
             }
           }
 
-          // Listen for auth changes
+          // ✅ Listen for auth changes and refresh balance
           const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            async (_event, session) => {
+            async (event, session) => {
               setUser(session?.user ?? null)
-              if (!session?.user) {
-                setPortfolioBalance(15000)
+
+              if (session?.user) {
+                // Re-fetch balance on every auth state change
+                const { data: profile } = await supabase
+                  .from("profiles")
+                  .select("portfolio_balance")
+                  .eq("id", session.user.id)
+                  .single()
+
+                setPortfolioBalance(profile?.portfolio_balance ?? 0)
+              } else {
+                setPortfolioBalance(0) // ✅ 0 not 15000
                 setTradeHistory([])
               }
             }
@@ -104,7 +139,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setIsLoading(false)
         }
       } else {
-        // Demo mode - no Supabase
         setIsLoading(false)
       }
     }
@@ -114,7 +148,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     if (!supabaseConfigured) {
-      // Demo mode - simulate login
       const mockUser = {
         id: "demo-user-id",
         email,
@@ -130,25 +163,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { createClient } = await import("@/lib/supabase/client")
       const supabase = createClient()
-      
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
 
-      if (error) {
-        return { success: false, error: error.message }
-      }
-
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) return { success: false, error: error.message }
       return { success: true }
-    } catch (error) {
+    } catch {
       return { success: false, error: "Failed to connect to authentication service" }
     }
   }, [supabaseConfigured])
 
   const signup = useCallback(async (email: string, password: string) => {
     if (!supabaseConfigured) {
-      // Demo mode - simulate signup
       const mockUser = {
         id: "demo-user-id",
         email,
@@ -164,27 +189,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { createClient } = await import("@/lib/supabase/client")
       const supabase = createClient()
-      
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ||
-            `${window.location.origin}/dashboard`,
+          emailRedirectTo: `${window.location.origin}/dashboard`,
         },
       })
 
-      if (error) {
-        return { success: false, error: error.message }
-      }
-
-      // Check if email confirmation is required
-      if (data.user && !data.session) {
-        return { success: true, needsConfirmation: true }
-      }
-
+      if (error) return { success: false, error: error.message }
+      if (data.user && !data.session) return { success: true, needsConfirmation: true }
       return { success: true }
-    } catch (error) {
+    } catch {
       return { success: false, error: "Failed to connect to authentication service" }
     }
   }, [supabaseConfigured])
@@ -200,7 +217,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
     setUser(null)
-    setPortfolioBalance(15000)
+    setPortfolioBalance(0) // ✅ 0 not 15000
     setTradeHistory([])
   }, [supabaseConfigured])
 
@@ -220,8 +237,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           const { createClient } = await import("@/lib/supabase/client")
           const supabase = createClient()
-          
-          // Save trade to database
+
           const { data: tradeData, error: tradeError } = await supabase
             .from("trades")
             .insert({
@@ -241,7 +257,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return false
           }
 
-          // Update portfolio balance
           const { error: profileError } = await supabase
             .from("profiles")
             .update({ portfolio_balance: newBalance })
@@ -271,9 +286,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return false
         }
       } else {
-        // Demo mode - local state only
         setPortfolioBalance(newBalance)
-        
         const newTrade: Trade = {
           id: `demo-${Date.now()}`,
           type,
@@ -283,7 +296,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           timestamp: new Date(),
           status: "completed",
         }
-
         setTradeHistory((prev) => [newTrade, ...prev])
         return true
       }
@@ -300,6 +312,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         tradeHistory,
         isLoading,
         isSupabaseConnected: supabaseConfigured,
+        refreshBalance,
         login,
         signup,
         logout,
