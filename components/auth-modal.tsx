@@ -13,6 +13,9 @@ import { loadCaptchaEnginge, LoadCanvasTemplate, validateCaptcha } from "react-s
 
 const supabase = createClient()
 
+// Supabase OTP length — must match your Supabase dashboard setting
+const OTP_LENGTH = 6
+
 type AuthModalProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -28,7 +31,7 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
   // Captcha
   const [captchaInput, setCaptchaInput] = useState("")
 
-  // Sign In — two steps: password check → OTP verify
+  // Sign In
   const [signInEmail, setSignInEmail] = useState("")
   const [signInPassword, setSignInPassword] = useState("")
   const [signInStep, setSignInStep] = useState<"credentials" | "otp">("credentials")
@@ -102,24 +105,25 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
     setIsLoading(true)
 
     try {
-      // First verify password is correct
+      // Verify password first
       const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: signInEmail,
+        email: signInEmail.trim().toLowerCase(),
         password: signInPassword,
       })
       if (signInError) throw signInError
 
-      // Password correct — sign out immediately and send OTP
+      // Password correct — sign out and send OTP
       await supabase.auth.signOut()
 
+      // signInWithOtp → verify with type: "magiclink"
       const { error: otpError } = await supabase.auth.signInWithOtp({
-        email: signInEmail,
+        email: signInEmail.trim().toLowerCase(),
         options: { shouldCreateUser: false },
       })
       if (otpError) throw otpError
 
       setSignInStep("otp")
-      setSuccessMessage(`A 6-digit code has been sent to ${signInEmail}`)
+      setSuccessMessage(`A ${OTP_LENGTH}-digit code has been sent to ${signInEmail}`)
     } catch (err: any) {
       setError(err.message || "Invalid email or password")
     } finally {
@@ -127,10 +131,12 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
     }
   }
 
-  // SIGN IN — Step 2: verify the OTP code
+  // SIGN IN — Step 2: verify OTP
+  // signInWithOtp → must use type: "magiclink"
   const handleVerifySignInOtp = async () => {
-    if (signInOtp.length < 6) {
-      setError("Please enter the full 6-digit code")
+    const token = signInOtp.trim()
+    if (token.length < OTP_LENGTH) {
+      setError(`Please enter the full ${OTP_LENGTH}-digit code`)
       return
     }
 
@@ -139,9 +145,9 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
 
     try {
       const { error } = await supabase.auth.verifyOtp({
-        email: signInEmail,
-        token: signInOtp,
-        type: "email",
+        email: signInEmail.trim().toLowerCase(),
+        token,
+        type: "magiclink", // ✅ signInWithOtp always uses "magiclink"
       })
       if (error) throw error
 
@@ -161,7 +167,8 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
   }
 
   // =================
-  // SIGN UP — send OTP
+  // SIGN UP — uses supabase.auth.signUp (NOT signInWithOtp)
+  // signUp → verify with type: "signup"
   // =================
   const handleSignUp = async (e: FormEvent) => {
     e.preventDefault()
@@ -172,6 +179,10 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
       setError("Passwords do not match")
       return
     }
+    if (signUpPassword.length < 8) {
+      setError("Password must be at least 8 characters")
+      return
+    }
     if (!acceptedTerms) {
       setError("Please accept the terms")
       return
@@ -180,17 +191,25 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
     setIsLoading(true)
 
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email: signUpEmail,
+      // ✅ Use signUp NOT signInWithOtp — this sends type "signup" token
+      const { data, error } = await supabase.auth.signUp({
+        email: signUpEmail.trim().toLowerCase(),
+        password: signUpPassword,
         options: {
-          shouldCreateUser: true,
           emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       })
       if (error) throw error
 
+      // User already exists check
+      if (data.user && data.user.identities && data.user.identities.length === 0) {
+        setError("An account with this email already exists. Please sign in.")
+        return
+      }
+
       setSignUpStep("otp")
-      setSuccessMessage(`We've sent an 6-digit verification code to ${signUpEmail}.`)
+      setSignUpEmail(signUpEmail.trim().toLowerCase())
+      setSuccessMessage(`A ${OTP_LENGTH}-digit verification code has been sent to ${signUpEmail}.`)
     } catch (err: any) {
       setError(err.message || "Failed to send verification code.")
     } finally {
@@ -199,9 +218,11 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
   }
 
   // SIGN UP — verify OTP
+  // supabase.auth.signUp → must use type: "signup"
   const handleVerifySignUpOtp = async () => {
-    if (signUpOtp.length < 6) {
-      setError("Please enter the full 6-digit code")
+    const token = signUpOtp.trim()
+    if (token.length < OTP_LENGTH) {
+      setError(`Please enter the full ${OTP_LENGTH}-digit code`)
       return
     }
 
@@ -211,13 +232,16 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
     try {
       const { error } = await supabase.auth.verifyOtp({
         email: signUpEmail,
-        token: signUpOtp,
-        type: "signup",
+        token,
+        type: "signup", // ✅ supabase.auth.signUp always uses "signup"
       })
       if (error) throw error
 
       setSuccessMessage("Account created successfully!")
-      setTimeout(() => onOpenChange(false), 1500)
+      setTimeout(() => {
+        onOpenChange(false)
+        window.location.href = "/dashboard"
+      }, 1000)
     } catch (err: any) {
       setError("Invalid or expired code. Please try again.")
     } finally {
@@ -226,7 +250,8 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
   }
 
   // =================
-  // FORGOT PASSWORD — Step 1: send OTP
+  // FORGOT PASSWORD — uses resetPasswordForEmail
+  // resetPasswordForEmail → verify with type: "recovery"
   // =================
   const handleForgotPassword = async (e: FormEvent) => {
     e.preventDefault()
@@ -234,15 +259,18 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
     setIsLoading(true)
 
     try {
-      // signInWithOtp sends a code (not a magic link) when OTP is enabled in Supabase
-      const { error } = await supabase.auth.signInWithOtp({
-        email: forgotEmail,
-        options: { shouldCreateUser: false },
-      })
+      // ✅ Use resetPasswordForEmail NOT signInWithOtp — sends "recovery" token
+      const { error } = await supabase.auth.resetPasswordForEmail(
+        forgotEmail.trim().toLowerCase(),
+        {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        }
+      )
       if (error) throw error
 
       setForgotStep("otp")
-      setSuccessMessage(`A 6-digit reset code has been sent to ${forgotEmail}`)
+      setForgotEmail(forgotEmail.trim().toLowerCase())
+      setSuccessMessage(`A ${OTP_LENGTH}-digit reset code has been sent to ${forgotEmail}`)
     } catch (err: any) {
       setError(err.message || "Failed to send reset code")
     } finally {
@@ -251,9 +279,11 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
   }
 
   // FORGOT PASSWORD — Step 2: verify OTP
+  // resetPasswordForEmail → must use type: "recovery"
   const handleVerifyForgotOtp = async () => {
-    if (forgotOtp.length < 6) {
-      setError("Please enter the full 6-digit code")
+    const token = forgotOtp.trim()
+    if (token.length < OTP_LENGTH) {
+      setError(`Please enter the full ${OTP_LENGTH}-digit code`)
       return
     }
 
@@ -263,8 +293,8 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
     try {
       const { error } = await supabase.auth.verifyOtp({
         email: forgotEmail,
-        token: forgotOtp,
-        type: "email",
+        token,
+        type: "recovery", // ✅ resetPasswordForEmail always uses "recovery"
       })
       if (error) throw error
 
@@ -374,7 +404,7 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
             ) : (
               <div className="flex flex-col gap-4 mt-6">
                 <p className="text-center text-sm text-muted-foreground">
-                  Enter the 6-digit code sent to <br />
+                  Enter the {OTP_LENGTH}-digit code sent to <br />
                   <strong>{signInEmail}</strong>
                 </p>
                 {successMessage && (
@@ -387,14 +417,20 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
                   placeholder="123456"
                   value={signInOtp}
                   onChange={(e) => setSignInOtp(e.target.value.trim())}
-                  maxLength={6}
+                  maxLength={OTP_LENGTH}
+                  inputMode="numeric"
                   className="text-center text-2xl tracking-widest"
                 />
                 {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-                <Button onClick={handleVerifySignInOtp} disabled={isLoading || signInOtp.length < 6}>
+                <Button onClick={handleVerifySignInOtp} disabled={isLoading || signInOtp.trim().length < OTP_LENGTH}>
                   {isLoading ? <Spinner /> : "Verify & Sign In"}
                 </Button>
-                <Button variant="ghost" onClick={() => { setSignInStep("credentials"); setError(""); setSignInOtp("") }}>
+                <Button variant="ghost" onClick={() => {
+                  setSignInStep("credentials")
+                  setError("")
+                  setSignInOtp("")
+                  setSuccessMessage("")
+                }}>
                   ← Back
                 </Button>
               </div>
@@ -406,7 +442,7 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
             {forgotStep === "email" && (
               <form onSubmit={handleForgotPassword} className="flex flex-col gap-4 mt-4">
                 <p className="text-sm text-muted-foreground text-center">
-                  Enter your email and we'll send you a 6-digit reset code.
+                  Enter your email and we'll send you a {OTP_LENGTH}-digit reset code.
                 </p>
                 <Input
                   type="email"
@@ -428,7 +464,7 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
             {forgotStep === "otp" && (
               <div className="flex flex-col gap-4 mt-6">
                 <p className="text-center text-sm text-muted-foreground">
-                  Enter the 6-digit code sent to <br />
+                  Enter the {OTP_LENGTH}-digit reset code sent to <br />
                   <strong>{forgotEmail}</strong>
                 </p>
                 {successMessage && (
@@ -441,14 +477,20 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
                   placeholder="123456"
                   value={forgotOtp}
                   onChange={(e) => setForgotOtp(e.target.value.trim())}
-                  maxLength={6}
+                  maxLength={OTP_LENGTH}
+                  inputMode="numeric"
                   className="text-center text-2xl tracking-widest"
                 />
                 {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-                <Button onClick={handleVerifyForgotOtp} disabled={isLoading || forgotOtp.length < 6}>
+                <Button onClick={handleVerifyForgotOtp} disabled={isLoading || forgotOtp.trim().length < OTP_LENGTH}>
                   {isLoading ? <Spinner /> : "Verify Code"}
                 </Button>
-                <Button variant="ghost" onClick={() => { setForgotStep("email"); setError(""); setForgotOtp("") }}>
+                <Button variant="ghost" onClick={() => {
+                  setForgotStep("email")
+                  setError("")
+                  setForgotOtp("")
+                  setSuccessMessage("")
+                }}>
                   ← Back
                 </Button>
               </div>
@@ -461,7 +503,7 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
                 </p>
                 <Input
                   type="password"
-                  placeholder="New password"
+                  placeholder="New password (min 8 chars)"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   required
@@ -496,7 +538,7 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
                 />
                 <Input
                   type="password"
-                  placeholder="Password"
+                  placeholder="Password (min 8 chars)"
                   value={signUpPassword}
                   onChange={(e) => setSignUpPassword(e.target.value)}
                   required
@@ -521,7 +563,7 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
             ) : (
               <div className="flex flex-col gap-4 mt-6">
                 <p className="text-center text-sm text-muted-foreground">
-                  Enter the code sent to <br />
+                  Enter the {OTP_LENGTH}-digit code sent to <br />
                   <strong>{signUpEmail}</strong>
                 </p>
                 <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-xs text-amber-600 text-center">
@@ -533,15 +575,21 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
                   placeholder="123456"
                   value={signUpOtp}
                   onChange={(e) => setSignUpOtp(e.target.value.trim())}
-                  maxLength={6}
+                  maxLength={OTP_LENGTH}
+                  inputMode="numeric"
                   className="text-center text-2xl tracking-widest"
                 />
                 {error && <p className="text-red-500 text-sm text-center">{error}</p>}
                 {successMessage && <p className="text-green-500 text-sm text-center">{successMessage}</p>}
-                <Button onClick={handleVerifySignUpOtp} disabled={isLoading || signUpOtp.length < 6}>
-                  {isLoading ? <Spinner /> : "Verify Code"}
+                <Button onClick={handleVerifySignUpOtp} disabled={isLoading || signUpOtp.trim().length < OTP_LENGTH}>
+                  {isLoading ? <Spinner /> : "Verify & Create Account"}
                 </Button>
-                <Button variant="ghost" onClick={() => { setSignUpStep("none"); setError(""); setSignUpOtp("") }}>
+                <Button variant="ghost" onClick={() => {
+                  setSignUpStep("none")
+                  setError("")
+                  setSignUpOtp("")
+                  setSuccessMessage("")
+                }}>
                   ← Back to Sign Up
                 </Button>
               </div>
