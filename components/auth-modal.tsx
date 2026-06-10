@@ -119,7 +119,7 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
       if (otpError) throw otpError
 
       setSignInStep("otp")
-      setSuccessMessage(`A 8-digit code has been sent to ${signInEmail}`)
+      setSuccessMessage(`A 6-digit code has been sent to ${signInEmail}`)
     } catch (err: any) {
       setError(err.message || "Invalid email or password")
     } finally {
@@ -129,8 +129,8 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
 
   // SIGN IN — Step 2: verify the OTP code
   const handleVerifySignInOtp = async () => {
-    if (signInOtp.length < 8) {
-      setError("Please enter the full 8-digit code")
+    if (signInOtp.length < 6) {
+      setError("Please enter the full 6-digit code")
       return
     }
 
@@ -190,7 +190,7 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
       if (error) throw error
 
       setSignUpStep("otp")
-      setSuccessMessage(`We've sent an 8-digit verification code to ${signUpEmail}.`)
+      setSuccessMessage(`We've sent an 6-digit verification code to ${signUpEmail}.`)
     } catch (err: any) {
       setError(err.message || "Failed to send verification code.")
     } finally {
@@ -200,8 +200,8 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
 
   // SIGN UP — verify OTP
   const handleVerifySignUpOtp = async () => {
-    if (signUpOtp.length < 8) {
-      setError("Please enter the full 8-digit code")
+    if (signUpOtp.length < 6) {
+      setError("Please enter the full 6-digit code")
       return
     }
 
@@ -242,7 +242,7 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
       if (error) throw error
 
       setForgotStep("otp")
-      setSuccessMessage(`A 8-digit reset code has been sent to ${forgotEmail}`)
+      setSuccessMessage(`A 6-digit reset code has been sent to ${forgotEmail}`)
     } catch (err: any) {
       setError(err.message || "Failed to send reset code")
     } finally {
@@ -252,8 +252,8 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
 
   // FORGOT PASSWORD — Step 2: verify OTP
   const handleVerifyForgotOtp = async () => {
-    if (forgotOtp.length < 8) {
-      setError("Please enter the full 8-digit code")
+    if (forgotOtp.length < 6) {
+      setError("Please enter the full 6-digit code")
       return
     }
 
@@ -374,7 +374,7 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
             ) : (
               <div className="flex flex-col gap-4 mt-6">
                 <p className="text-center text-sm text-muted-foreground">
-                  Enter the 8-digit code sent to <br />
+                  Enter the 6-digit code sent to <br />
                   <strong>{signInEmail}</strong>
                 </p>
                 {successMessage && (
@@ -384,14 +384,14 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
                   Didn't receive it? Check your <strong>Spam</strong> or <strong>Junk</strong> folder.
                 </div>
                 <Input
-                  placeholder="12345678"
+                  placeholder="123456"
                   value={signInOtp}
                   onChange={(e) => setSignInOtp(e.target.value.trim())}
-                  maxLength={8}
+                  maxLength={6}
                   className="text-center text-2xl tracking-widest"
                 />
                 {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-                <Button onClick={handleVerifySignInOtp} disabled={isLoading || signInOtp.length < 8}>
+                <Button onClick={handleVerifySignInOtp} disabled={isLoading || signInOtp.length < 6}>
                   {isLoading ? <Spinner /> : "Verify & Sign In"}
                 </Button>
                 <Button variant="ghost" onClick={() => { setSignInStep("credentials"); setError(""); setSignInOtp("") }}>
@@ -406,7 +406,7 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
             {forgotStep === "email" && (
               <form onSubmit={handleForgotPassword} className="flex flex-col gap-4 mt-4">
                 <p className="text-sm text-muted-foreground text-center">
-                  Enter your email and we'll send you a 8-digit reset code.
+                  Enter your email and we'll send you a 6-digit reset code.
                 </p>
                 <Input
                   type="email"
@@ -428,7 +428,7 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
             {forgotStep === "otp" && (
               <div className="flex flex-col gap-4 mt-6">
                 <p className="text-center text-sm text-muted-foreground">
-                  Enter the 8-digit code sent to <br />
+                  Enter the 6-digit code sent to <br />
                   <strong>{forgotEmail}</strong>
                 </p>
                 {successMessage && (
@@ -438,14 +438,14 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
                   Didn't receive it? Check your <strong>Spam</strong> or <strong>Junk</strong> folder.
                 </div>
                 <Input
-                  placeholder="12345678"
+                  placeholder="123456"
                   value={forgotOtp}
                   onChange={(e) => setForgotOtp(e.target.value.trim())}
-                  maxLength={8}
+                  maxLength={6}
                   className="text-center text-2xl tracking-widest"
                 />
                 {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-                <Button onClick={handleVerifyForgotOtp} disabled={isLoading || forgotOtp.length < 8}>
+                <Button onClick={handleVerifyForgotOtp} disabled={isLoading || forgotOtp.length < 6}>
                   {isLoading ? <Spinner /> : "Verify Code"}
                 </Button>
                 <Button variant="ghost" onClick={() => { setForgotStep("email"); setError(""); setForgotOtp("") }}>
@@ -530,10 +530,10 @@ export function AuthModal({ open, onOpenChange, defaultTab = "signin" }: AuthMod
                   <strong> Not Spam</strong> to receive future emails normally.
                 </div>
                 <Input
-                  placeholder="1234578"
+                  placeholder="123456"
                   value={signUpOtp}
                   onChange={(e) => setSignUpOtp(e.target.value.trim())}
-                  maxLength={8}
+                  maxLength={6}
                   className="text-center text-2xl tracking-widest"
                 />
                 {error && <p className="text-red-500 text-sm text-center">{error}</p>}
